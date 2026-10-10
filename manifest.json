@@ -1,0 +1,58 @@
+{
+  "name": "Pink Minesweeper",
+  "short_name": "Minesweeper",
+  "start_url": "/",
+  "id": "pink-minesweeper",
+  "description": "Custom multiplayer 1v1 neon-pink Minesweeper game.",
+  "display": "standalone",
+  "background_color": "#cf289c",
+  "theme_color": "#cf289c",
+  "orientation": "any",
+  "dir": "ltr",
+  "lang": "en",
+  "scope": "/",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "https://pink-minesweeper.fly.dev/types.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://pink-minesweeper.fly.dev/icon5.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://pink-minesweeper.fly.dev/screenshot.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Pink Minesweeper Game"
+    },
+    {
+      "src": "https://pink-minesweeper.fly.dev/icon2.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Pink Minesweeper Game"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Play Game",
+      "url": "/",
+      "icons": [
+        {
+          "src": "https://pink-minesweeper.fly.dev/icon5.jpg",
+          "sizes": "512x512",
+          "type": "image/jpeg"
+        }
+      ]
+    }
+  ]
+}

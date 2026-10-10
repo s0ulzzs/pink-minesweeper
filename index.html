@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="manifest" href="/manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinksweeper Arena</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --mini: clamp(110px, 28vw, 180px);
+            --win: #5dffb0;
+            --lose: #ff3b5c;
+            --tie: #ffd24d;
+                        --pink: #ff70ba;
+            --muted: #d9a6c6;
+            --pink-deep: #d92671;
+            --pink-hot: #ff4088;
+            --page-gradient: radial-gradient(circle at center, #180916 0%, #0a0309 100%);
+            --panel-color: #1c0817;
+            --line-color: #4a173d;
+            --board-color: #220a1c;
+            --cell-color: #1a0616;
+            --tile-size: 22px;
+            --hover-cell: #45133b;
+            --revealed-cell: #fae1f2;
+            --revealed-text: #24051d;
+        }
+        * { -webkit-tap-highlight-color: transparent; }
+        body {
+            background: var(--page-gradient);
+            color: #fce4f3;
+            font-family: 'Share Tech Mono', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 8px;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        .screen.active { display: flex; }
+        #screen-menu, #screen-settings, #screen-lobby {
+            min-height: 92vh;
+            justify-content: center;
+        }
+        button { font-family: 'Orbitron', sans-serif; }
+        .btn-main, .btn-alt {
+            width: min(300px, 80vw);
+            padding: 14px;
+            margin: 7px 0;
+            font-weight: 800;
+            font-size: 15px;
+            letter-spacing: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-main { background: var(--pink-deep); color: #fff; border: none; }
+        .btn-main:hover { background: var(--pink-hot); }
+        .btn-main:disabled { opacity: 0.45; cursor: not-allowed; background: var(--pink-deep); }
+        .btn-alt { background: transparent; color: var(--pink); border: 1px solid var(--pink); }
+        .btn-alt:hover { background: rgba(255, 112, 186, 0.15); }
+        .btn-mini {
+            padding: 5px 10px;
+            background: var(--pink-deep);
+            color: #fff;
+            border: none;
+            font-weight: 800;
+            font-size: 11px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .btn-mini:hover { background: var(--pink-hot); }
+        .btn-mini.ghost { background: transparent; color: var(--pink); border: 1px solid var(--pink); }
+        .btn-mini.ghost:hover { background: rgba(255, 112, 186, 0.15); }
+        .btn-mini.on { background: var(--pink); color: #24051d; }
+        .menu-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(30px, 8vw, 58px);
+            letter-spacing: 6px;
+            color: var(--pink);
+            margin: 0 0 8px 0;
+            text-align: center;
+            text-transform: uppercase;
+            text-shadow: 0 0 18px rgba(255, 112, 186, 0.55);
+        }
+        .menu-sub {
+            color: #d9a6c6;
+            margin-bottom: 28px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .menu-notice {
+            min-height: 20px;
+            max-width: 340px;
+            text-align: center;
+            margin-top: 14px;
+            font-size: 13px;
+            color: #ff8aa0;
+        }
+        .menu-help {
+            max-width: 340px;
+            text-align: center;
+            margin-top: 22px;
+            font-size: 12px;
+            color: #b9809f;
+        }
+        .panel {
+            width: min(420px, 92vw);
+            background: var(--panel-color);
+            border: 1px solid var(--line-color);
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 18px;
+            box-sizing: border-box;
+        }
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            cursor: pointer;
+        }
+        .setting-name { font-size: 16px; color: #fce4f3; }
+        .setting-desc { font-size: 12px; color: #b9809f; margin-top: 4px; }
+        .switch {
+            -webkit-appearance: none;
+            appearance: none;
+            flex: 0 0 auto;
+            width: 48px;
+            height: 26px;
+            border-radius: 13px;
+            background: #3a0f2f;
+            border: 1px solid var(--pink);
+            position: relative;
+            cursor: pointer;
+            margin: 0;
+        }
+        .switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--pink);
+            transition: left 0.15s;
+        }
+        .switch:checked { background: var(--pink-deep); }
+        .switch:checked::after { left: 24px; background: #fff; }
+        .lobby-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 15px;
+        }
+        .lobby-row + .lobby-row { border-top: 1px solid #3a0f2f; }
+        .pill {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 1px solid #70305a;
+            color: #b9809f;
+        }
+        .pill.on { border-color: var(--win); color: var(--win); background: rgba(93, 255, 176, 0.1); }
+        .countdown {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 84px;
+            font-weight: 800;
+            color: var(--pink);
+            text-shadow: 0 0 24px rgba(255, 112, 186, 0.6);
+            min-height: 100px;
+            line-height: 100px;
+            text-align: center;
+        }
+        .hint {
+            max-width: 340px;
+            text-align: center;
+            font-size: 13px;
+            color: #d9a6c6;
+            min-height: 36px;
+            margin-bottom: 8px;
+        }
+        .rules {
+            width: min(420px, 92vw);
+            font-size: 12px;
+            color: #b9809f;
+            margin: 14px 0 0 0;
+            padding-left: 20px;
+            box-sizing: border-box;
+        }
+        .rules li { margin-bottom: 4px; }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 4px 0 6px 0;
+        }
+        h1.game-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 20px;
+            letter-spacing: 3px;
+            color: var(--pink);
+            margin: 0 8px;
+            text-transform: uppercase;
+            text-shadow: 0 0 12px rgba(255, 112, 186, 0.5);
+        }
+        .game-head { text-align: center; margin-bottom: 8px; }
+        #status-bar {
+            font-size: 13px;
+            background: var(--panel-color);
+            border: 1px solid var(--pink);
+            padding: 5px 14px;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(255, 112, 186, 0.2);
+            display: inline-block;
+            max-width: 94vw;
+        }
+        .banner {
+            display: none;
+            width: fit-content;
+            max-width: min(520px, 94vw);
+            margin: 8px auto 0 auto;
+            padding: 8px 14px;
+            border-radius: 4px;
+            border: 1px solid;
+            font-size: 13px;
+            text-align: center;
+        }
+        .banner.warn { display: block; border-color: var(--tie);  color: var(--tie);  background: rgba(255, 210, 77, 0.08); }
+        .banner.lose { display: block; border-color: var(--lose); color: var(--lose); background: rgba(255, 59, 92, 0.08); }
+        .result-bar {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: fit-content;
+            max-width: 94vw;
+            margin: 8px auto 0 auto;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 2px solid;
+            font-size: 14px;
+        }
+        .result-bar.win  { display: flex; border-color: var(--win);  color: var(--win);  background: rgba(93, 255, 176, 0.08); }
+        .result-bar.lose { display: flex; border-color: var(--lose); color: var(--lose); background: rgba(255, 59, 92, 0.08); }
+        .result-bar.tie  { display: flex; border-color: var(--tie);  color: var(--tie);  background: rgba(255, 210, 77, 0.08); }
+        .arena {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100%;
+        }
+        .board-wrapper {
+            flex: 0 1 auto;
+            min-width: 0;
+            overflow: auto;
+            max-width: 96vw;
+            max-height: 75vh;
+            border-radius: 6px;
+            background-color: var(--board-color);
+            padding: 5px;
+            border: 2px solid var(--line-color);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+        }
+        .board-wrapper.win  { border-color: var(--win);  box-shadow: 0 0 24px rgba(93, 255, 176, 0.35); }
+        .board-wrapper.lose { border-color: var(--lose); box-shadow: 0 0 24px rgba(255, 59, 92, 0.35); }
+        .board-wrapper.tie  { border-color: var(--tie);  box-shadow: 0 0 24px rgba(255, 210, 77, 0.35); }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(30, var(--tile-size));
+            grid-template-rows: repeat(30, var(--tile-size));
+            gap: 1px;
+            background-color: var(--line-color);
+        }
+        .cell {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            background-color: var(--cell-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+        .cell:hover { background-color: var(--hover-cell); }
+        .cell.rev {
+            background-color: var(--revealed-cell) !important;
+            color: var(--revealed-text) !important;
+            cursor: default;
+        }
+        .cell[data-am="1"] { color: #003cd2 !important; }
+        .cell[data-am="2"] { color: #00802b !important; }
+        .cell[data-am="3"] { color: #c80000 !important; }
+        .cell[data-am="4"] { color: #5a008a !important; }
+        .cell[data-am="5"] { color: #803000 !important; }
+        .cell[data-am="6"] { color: #008080 !important; }
+        .cell.mine {
+            background-color: #ff0055 !important;
+            color: #ffffff !important;
+        }
+        .cell.flag {
+            background-color: #4a0f35 !important;
+            color: var(--pink) !important;
+        }
+        .spectator-container {
+            position: fixed;
+            bottom: 12px;
+            right: 12px;
+            width: var(--mini);
+            background: #140511;
+            border: 2px solid var(--pink);
+            border-radius: 5px;
+            padding: 5px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.8);
+            z-index: 50;
+        }
+        .spectator-container.danger { border-color: var(--lose); }
+        .spectator-container.done   { border-color: var(--win); }
+        .spectator-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            color: var(--pink);
+            margin-bottom: 4px;
+            text-align: center;
+            letter-spacing: 1px;
+            min-height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .spectator-container.danger .spectator-title { color: var(--lose); }
+        .spectator-container.done .spectator-title   { color: var(--win); }
+        .spectator-wrapper {
+            width: var(--mini);
+            height: var(--mini);
+            background: #220a1c;
+            border-radius: 3px;
+        }
+        .spectator-wrapper .board {
+            width: 100%;
+            height: 100%;
+            grid-template-columns: repeat(30, 1fr);
+            grid-template-rows: repeat(30, 1fr);
+            gap: 0.5px;
+        }
+        .spectator-wrapper .cell {
+            width: 100%;
+            height: 100%;
+            font-size: 0;
+            pointer-events: none;
+        }
+        .spectator-wrapper .cell.flag {
+            background-color: var(--pink) !important;
+            color: #24051d !important;
+        }
+        .spectator-wrapper .cell.last {
+            outline: 2px solid var(--tie);
+            outline-offset: -2px;
+        }
+        .progress {
+            height: 5px;
+            background: #3a0f2f;
+            border-radius: 3px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        #opponent-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--pink);
+            transition: width 0.2s;
+        }
+        .spectator-container.danger #opponent-bar { background: var(--lose); }
+        .spectator-container.done #opponent-bar   { background: var(--win); }
+        .spectator-stats {
+            display: none;
+            font-size: 12px;
+            color: #d9a6c6;
+            margin-top: 6px;
+            text-align: center;
+        }
+        @media (min-width: 1180px) {
+            .spectator-container {
+                position: static;
+                width: auto;
+                padding: 8px;
+                flex: 0 0 auto;
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+            }
+            .spectator-title { font-size: 12px; min-height: 28px; }
+            .spectator-wrapper { width: auto; height: auto; }
+            .spectator-wrapper .board {
+                width: auto;
+                height: auto;
+                grid-template-columns: repeat(30, 12px);
+                grid-template-rows: repeat(30, 12px);
+                gap: 1px;
+            }
+            .spectator-wrapper .cell { width: 12px; height: 12px; font-size: 8px; }
+            .spectator-stats { display: block; }
+        }
+        body.practice .spectator-container,
+        body.no-opp .spectator-container { display: none !important; }
+        body.practice #btn-opp { display: none; }
+        #modal {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(10, 3, 9, 0.88);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-box {
+            background: var(--panel-color);
+            border: 3px solid var(--pink);
+            padding: 26px 34px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 90vw;
+            box-sizing: border-box;
+        }
+        .modal-box.win  { border-color: var(--win);  box-shadow: 0 0 40px rgba(93, 255, 176, 0.4); }
+        .modal-box.lose { border-color: var(--lose); box-shadow: 0 0 40px rgba(255, 59, 92, 0.4); }
+        .modal-box.tie  { border-color: var(--tie);  box-shadow: 0 0 40px rgba(255, 210, 77, 0.4); }
+        .modal-icon { font-size: 52px; line-height: 1; margin-bottom: 8px; }
+        .modal-box h2 {
+            font-family: 'Orbitron', sans-serif;
+            margin: 0 0 8px 0;
+            font-size: 32px;
+            letter-spacing: 4px;
+        }
+        .modal-box.win h2  { color: var(--win); }
+        .modal-box.lose h2 { color: var(--lose); }
+        .modal-box.tie h2  { color: var(--tie); }
+        #modal-winner { font-family: 'Orbitron', sans-serif; font-size: 15px; margin-bottom: 8px; }
+        #modal-desc { font-size: 14px; max-width: 340px; margin: 0 auto; }
+        .result-rows {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 5px 14px;
+            text-align: left;
+            margin: 14px auto 0 auto;
+            font-size: 14px;
+            max-width: 360px;
+        }
+        .result-rows .who { color: var(--pink); }
+        .modal-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 18px;
+        }
+        .modal-actions button {
+            padding: 9px 16px;
+            font-weight: 800;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .modal-actions .primary { background: var(--pink-deep); color: #fff; border: none; }
+        .modal-actions .primary:hover { background: var(--pink-hot); }
+        .modal-actions .secondary { background: transparent; color: var(--pink); border: 1px solid var(--pink); }
+        .modal-actions .secondary:hover { background: rgba(255, 112, 186, 0.15); }
+    
+
+        /* Added settings and lobby tools */
+        .online-counter, .practice-stats {
+            width: min(360px, 88vw);
+            box-sizing: border-box;
+            text-align: center;
+            border: 1px solid var(--line-color);
+            background: var(--panel-color);
+            color: var(--muted, #d9a6c6);
+            padding: 9px 12px;
+            border-radius: 6px;
+            margin: 0 0 12px;
+            font-size: 13px;
+        }
+        .practice-stats { line-height: 1.8; margin-top: 0; }
+        .join-code-row { display: flex; gap: 8px; width: min(300px, 80vw); margin: 6px 0 10px; }
+        .join-code-input {
+            min-width: 0; width: 100%; box-sizing: border-box;
+            background: var(--cell-color); color: #fce4f3;
+            border: 1px solid var(--pink); border-radius: 5px;
+            padding: 10px; font: 14px 'Share Tech Mono', monospace;
+            text-transform: uppercase;
+        }
+        .join-code-row .btn-mini { flex: 0 0 auto; padding: 8px 10px; }
+        .lobby-code-line { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; margin: 8px 0 12px; color: var(--pink); font-size: 13px; }
+        #lobby-code { letter-spacing: 3px; font-size: 18px; font-weight: 800; }
+        .setting-block { display:flex; flex-direction:column; gap:7px; margin-top:16px; }
+        .setting-block + .setting-block { border-top:1px solid var(--line-color); padding-top:16px; }
+        .setting-control-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .setting-select, .setting-range {
+            width: 145px; max-width: 48%; box-sizing:border-box;
+            accent-color: var(--pink); background: var(--cell-color); color:#fce4f3;
+            border:1px solid var(--pink); border-radius:4px; padding:7px;
+            font: 12px 'Share Tech Mono', monospace;
+        }
+        .setting-range { padding:0; border:0; }
+        .practice-option { width:min(340px, 88vw); margin:8px 0; padding:16px; text-align:left; border:1px solid var(--pink); border-radius:7px; background:var(--panel-color); color:#fce4f3; cursor:pointer; }
+        .practice-option:hover, .practice-option:focus { background:rgba(255,112,186,.14); outline:2px solid var(--pink); }
+        .practice-option strong { display:block; color:var(--pink); font:800 16px 'Orbitron',sans-serif; letter-spacing:1px; margin-bottom:6px; }
+        .practice-option span { font-size:12px; color:#d9a6c6; }
+        .online-lobby-count { text-align:center; color:#d9a6c6; font-size:12px; margin-top:8px; }
+        body[data-theme="lavender"] {
+            --pink:#c7a0ff; --pink-deep:#8755d9; --pink-hot:#a477f2;
+            --line-color:#4a3475; --panel-color:#171025; --board-color:#1f1533; --cell-color:#130d20;
+            --page-gradient:radial-gradient(circle at center,#211334 0%,#090610 100%);
+            --hover-cell:#392450; --revealed-cell:#eee4ff; --revealed-text:#21142f;
+        }
+        body[data-theme="mint"] {
+            --pink:#72f5cf; --pink-deep:#169b7a; --pink-hot:#27bd97;
+            --line-color:#21584b; --panel-color:#071c19; --board-color:#0b2721; --cell-color:#061712;
+            --page-gradient:radial-gradient(circle at center,#0e3027 0%,#030c0a 100%);
+            --hover-cell:#14483b; --revealed-cell:#d9fff4; --revealed-text:#073126;
+        }
+        body[data-theme="blue"] {
+            --pink:#71c9ff; --pink-deep:#187eb7; --pink-hot:#299ddd;
+            --line-color:#1b4c70; --panel-color:#071725; --board-color:#0b2133; --cell-color:#06131f;
+            --page-gradient:radial-gradient(circle at center,#102b43 0%,#030911 100%);
+            --hover-cell:#17466a; --revealed-cell:#dff4ff; --revealed-text:#06253c;
+        }
+        body[data-theme="lavender"] .menu-title, body[data-theme="mint"] .menu-title, body[data-theme="blue"] .menu-title,
+        body[data-theme="lavender"] h1.game-title, body[data-theme="mint"] h1.game-title, body[data-theme="blue"] h1.game-title { color:var(--pink); }
+        body[data-theme="lavender"] .btn-main, body[data-theme="mint"] .btn-main, body[data-theme="blue"] .btn-main { background:var(--pink-deep); }
+        body.no-effects *, body.no-effects *::before, body.no-effects *::after { transition:none !important; animation:none !important; box-shadow:none !important; text-shadow:none !important; }
+        #screen-settings { padding:16px 0 24px; }
+        #screen-practice-select { min-height:92vh; justify-content:center; }
+        @media (max-width:440px) {
+            .join-code-row { flex-direction:column; }
+            .join-code-row .btn-mini { width:100%; }
+            .setting-name { font-size:14px; }
+        }
+
+    </style>
+</head>
+<body>
+<!-- MAIN MENU -->
+    <div id="screen-menu" class="screen active">
+        <h1 class="menu-title">Pinksweeper<br>Arena</h1>
+        <div class="menu-sub">30 x 30 grid. Race a friend or practice at your own difficulty.</div>
+                <div class="online-counter">Players online: <span id="online-count">0</span></div>
+
+        <button class="btn-main" onclick="playOnline()">RANDOM MATCH</button>
+        <button class="btn-alt" onclick="createLobby()">CREATE LOBBY</button>
+        <div class="join-code-row">
+            <input id="join-code" class="join-code-input" maxlength="6" placeholder="LOBBY CODE" aria-label="Lobby code" autocomplete="off">
+            <button class="btn-mini" onclick="joinByCode()">JOIN</button>
+        </div>
+
+        <button class="btn-alt" onclick="showPracticeSelect()">PRACTICE</button>
+        <button class="btn-alt" onclick="showScreen('settings')">SETTINGS</button>
+        <div id="practice-stats" class="practice-stats">Current streak: 0 · Best streak: 0<br>Practice wins: 0</div>
+        <div id="menu-notice" class="menu-notice"></div>
+        <div class="menu-help">Left-click reveals a tile, right-click places a flag. Click a revealed number whose flags match it to clear the tiles around it. On a phone, turn on Flag mode in the game to place flags.</div>
+    </div>
+
+    <!-- PRACTICE DIFFICULTY -->
+    <div id="screen-practice-select" class="screen">
+        <h1 class="menu-title" style="font-size: clamp(26px, 6vw, 40px);">Practice</h1>
+        <div class="menu-sub">Choose how many mines you want to play against.</div>
+        <button class="practice-option" onclick="startPractice('easy')"><strong>EASY</strong><span>35 mines · More room to learn</span></button>
+        <button class="practice-option" onclick="startPractice('medium')"><strong>MEDIUM</strong><span>60 mines · The standard board</span></button>
+        <button class="practice-option" onclick="startPractice('hard')"><strong>HARD</strong><span>100 mines · Higher mine density</span></button>
+        <button class="btn-alt" onclick="showScreen('menu')">BACK</button>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="screen-settings" class="screen">
+        <h1 class="menu-title" style="font-size: clamp(26px, 6vw, 40px);">Settings</h1>
+        <div class="panel">
+            <label class="setting-row">
+                <div><div class="setting-name">Show opponent view</div><div class="setting-desc">Shows the other player's board during online matches.</div></div>
+                <input type="checkbox" id="setting-opp" class="switch" onchange="setShowOpp(this.checked)">
+            </label>
+            <div class="setting-block">
+                <div class="setting-control-row"><div><div class="setting-name">Theme</div><div class="setting-desc">Change the app colors.</div></div>
+                    <select id="setting-theme" class="setting-select" onchange="setTheme(this.value)">
+                        <option value="pink">Neon Pink</option><option value="lavender">Lavender</option><option value="mint">Mint</option><option value="blue">Cyber Blue</option>
+                    </select>
+                </div>
+            </div>
+            <div class="setting-block">
+                <label class="setting-row"><div><div class="setting-name">Ambient music</div><div class="setting-desc">Procedural background synth, generated in your browser.</div></div>
+                    <input type="checkbox" id="setting-music" class="switch" onchange="setMusicEnabled(this.checked)">
+                </label>
+                <div class="setting-control-row"><label class="setting-name" for="setting-volume">Music volume</label><input id="setting-volume" class="setting-range" type="range" min="0" max="100" value="25" oninput="setMusicVolume(this.value)"></div>
+            </div>
+            <div class="setting-block">
+                <div class="setting-control-row"><div><div class="setting-name">Tile size</div><div class="setting-desc">Adjust the main board cells.</div></div>
+                    <select id="setting-tiles" class="setting-select" onchange="setTileSize(this.value)"><option value="18">Compact</option><option value="22">Normal</option><option value="26">Large</option></select>
+                </div>
+            </div>
+            <div class="setting-block">
+                <label class="setting-row"><div><div class="setting-name">Reduce visual effects</div><div class="setting-desc">Turns off glow, shadows, and transitions.</div></div>
+                    <input type="checkbox" id="setting-effects" class="switch" onchange="setReducedEffects(this.checked)">
+                </label>
+            </div>
+            <div class="setting-block"><div class="setting-name">Practice stats</div><div class="setting-desc">Your current streak, best streak, and win count save in this browser.</div>
+                <button class="btn-alt" style="width:100%; margin-top:8px;" onclick="resetPracticeStats()">RESET PRACTICE STATS</button>
+            </div>
+        </div>
+        <button class="btn-main" onclick="showScreen('menu')">BACK</button>
+    </div>
+<!-- LOBBY -->
+    <div id="screen-lobby" class="screen">
+        <h1 class="menu-title" style="font-size: clamp(26px, 6vw, 40px);">1v1 Arena</h1>
+        <div class="panel">
+            <div class="lobby-row"><span>You</span><span id="you-state" class="pill">NOT READY</span></div>
+                        <div class="lobby-row"><span>Opponent</span><span id="opp-state" class="pill">WAITING FOR PLAYER</span></div>
+            <div class="lobby-code-line">ROOM CODE <span id="lobby-code">------</span><button class="btn-mini ghost" onclick="copyRoomCode()">COPY</button></div>
+            <div class="online-lobby-count">Players online: <span id="lobby-online-count">0</span></div>
+
+        </div>
+        <div id="countdown" class="countdown"></div>
+        <div id="lobby-hint" class="hint">Connecting...</div>
+        <button id="btn-ready" class="btn-main" onclick="toggleReady()" disabled>READY</button>
+        <button class="btn-alt" onclick="leaveToMenu()">BACK TO MENU</button>
+        <ul class="rules">
+            <li>The round starts when both players press READY.</li>
+            <li>The first player to clear their board wins.</li>
+            <li>Hit a mine and you are out. If your opponent clears their board, they win. If they hit a mine too, it is a tie.</li>
+        </ul>
+    </div>
+<!-- GAME -->
+    <div id="screen-game" class="screen">
+        <div class="game-head">
+            <div class="topbar">
+                <button class="btn-mini ghost" onclick="leaveToMenu()">&larr; Menu</button>
+                <h1 class="game-title">Pinksweeper Arena</h1>
+                <button class="btn-mini ghost" id="btn-flag" onclick="toggleFlagMode()">Flag mode: OFF</button>
+                <button class="btn-mini ghost" id="btn-opp" onclick="toggleOpp()">Opponent view: ON</button>
+            </div>
+            <div id="status-bar">Ready</div>
+            <div id="banner" class="banner"></div>
+            <div id="result-bar" class="result-bar">
+                <span id="result-text"></span>
+                <button class="btn-mini" id="result-btn">Play again</button>
+            </div>
+        </div>
+        <div class="arena">
+            <div class="board-wrapper" id="board-wrapper">
+                <div id="my-board" class="board"></div>
+            </div>
+            <aside class="spectator-container" id="spectator">
+                <div class="spectator-title" id="opponent-status">Opponent: 0%</div>
+                <div class="spectator-wrapper">
+                    <div id="opponent-board" class="board"></div>
+                </div>
+                <div class="progress"><div id="opponent-bar"></div></div>
+                <div class="spectator-stats" id="opponent-stats"></div>
+            </aside>
+        </div>
+    </div>
+<!-- RESULT MODAL -->
+    <div id="modal">
+        <div class="modal-box" id="modal-box">
+            <div class="modal-icon" id="modal-icon"></div>
+            <h2 id="modal-title"></h2>
+            <div id="modal-winner"></div>
+            <div id="modal-desc"></div>
+            <div class="result-rows" id="modal-rows"></div>
+            <div class="modal-actions" id="modal-actions"></div>
+        </div>
+    </div>
+    <script>
+        const GS = 30;
+                const MINES = 100;
+        const SAFE_CELLS = GS * GS - MINES;
+        const PRACTICE_MINES = { easy: 35, medium: 60, hard: 100 };
+        let activeMineCount = MINES;
+        let selectedDifficulty = 'medium';
+        let pendingJoinAction = { type: 'matchmake' };
+        let currentRoomCode = '';
+        let appSettings = { theme: 'pink', music: false, volume: 25, tileSize: 22, reducedEffects: false, showOpponent: true };
+        let audioContext = null;
+        let musicInterval = null;
+        let musicStep = 0;
+        let musicVolume = 0.25;
+        let musicNeedsGesture = false;
+        let savedPracticeStats = { currentStreak: 0, bestStreak: 0, totalWins: 0, totalLosses: 0 };
+        const $ = (id) => document.getElementById(id);
+        const screens = {
+                        menu: $('screen-menu'),
+            practiceSelect: $('screen-practice-select'),
+            settings: $('screen-settings'),
+            lobby: $('screen-lobby'),
+            game: $('screen-game')
+        };
+        const myBoardEl = $('my-board');
+        const opponentBoardEl = $('opponent-board');
+        const boardWrapper = $('board-wrapper');
+        const statusBar = $('status-bar');
+        const banner = $('banner');
+        const resultBar = $('result-bar');
+        const resultText = $('result-text');
+        const resultBtn = $('result-btn');
+        const spectatorEl = $('spectator');
+        const opponentStatus = $('opponent-status');
+        const opponentBar = $('opponent-bar');
+        const opponentStats = $('opponent-stats');
+        const modal = $('modal');
+        const modalBox = $('modal-box');
+        const modalIcon = $('modal-icon');
+        const modalTitle = $('modal-title');
+        const modalWinner = $('modal-winner');
+        const modalDesc = $('modal-desc');
+        const modalRows = $('modal-rows');
+        const modalActions = $('modal-actions');
+        let mode = null;
+        let ws = null;
+        let wasOpen = false;
+        let intentionalClose = false;
+        let gotLobby = false;
+        let grid = [];
+        let firstClick = true;
+        let canPlay = false;
+        let roundLive = false;
+        let flagMode = false;
+        let myReady = false;
+        let oppPresent = false;
+        let oppReady = false;
+        let iDead = false;
+        let oppPct = 0;
+        let lastTime = 0;
+        let practiceStart = 0;
+        let practiceTimer = null;
+        let showOpp = true;
+        function showScreen(name) {
+            Object.entries(screens).forEach(([key, el]) => el.classList.toggle('active', key === name));
+        }
+        function fmt(ms) {
+            return (ms / 1000).toFixed(1) + 's';
+        }
+        function setShowOpp(val) {
+            showOpp = val;
+            document.body.classList.toggle('no-opp', !val);
+                        $('setting-opp').checked = val;
+            appSettings.showOpponent = val;
+            saveAppSettings();
+            $('btn-opp').innerText = `Opponent view: ${showOpp ? 'ON' : 'OFF'}`;
+        }
+
+        function toggleOpp() {
+            setShowOpp(!showOpp);
+            $('btn-opp').innerText = `Opponent view: ${showOpp ? 'ON' : 'OFF'}`;
+        }
+        function toggleFlagMode() {
+            flagMode = !flagMode;
+            $('btn-flag').classList.toggle('on', flagMode);$('btn-flag').innerText = `Flag mode: ${flagMode ? 'ON' : 'OFF'}`;
+        }
+        function createEmptyGrid() {
+            let g = [];
+            for (let x = 0; x < GS; x++) {
+                g[x] = [];
+                for (let y = 0; y < GS; y++) {
+                    g[x][y] = { ismine: false, rev: false, flag: false, am: 0 };
+                }
+            }
+            return g;
+        }
+        function populateMines(g, safeX, safeY) {
+            let mp = 0;
+            while (mp < activeMineCount) {
+                let x = Math.floor(Math.random() * GS);
+                let y = Math.floor(Math.random() * GS);
+                const isNearSafe = Math.abs(x - safeX) <= 1 && Math.abs(y - safeY) <= 1;
+                if (!g[x][y].ismine && !isNearSafe) {
+                    g[x][y].ismine = true;
+                    mp++;
+                }
+            }
+            for (let x = 0; x < GS; x++) {
+                for (let y = 0; y < GS; y++) {
+                    if (!g[x][y].ismine) {
+                        let c = 0;
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                let nx = x + dr, ny = y + dc;
+                                if (nx >= 0 && nx < GS && ny >= 0 && ny < GS && g[nx][ny].ismine) c++;
+                            }
+                        }
+                        g[x][y].am = c;
+                    }
+                }
+            }
+        }
+        function buildBoard(container, interactive) {
+            container.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            for (let x = 0; x < GS; x++) {
+                for (let y = 0; y < GS; y++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    if (interactive) {
+                        cell.addEventListener('click', () => onCellClick(x, y));
+                        cell.addEventListener('contextmenu', (e) => {
+                            e.preventDefault();
+                            onCellFlag(x, y);
+                        });
+                    }
+                    frag.appendChild(cell);
+                }
+            }
+            container.appendChild(frag);
+        }
+        function updateBoardUI(container, dataGrid, lastCoord) {
+            if (!dataGrid) return;
+            const cells = container.children;
+            let idx = 0;
+            for (let x = 0; x < GS; x++) {
+                for (let y = 0; y < GS; y++) {
+                    const c = dataGrid[x][y];
+                    const el = cells[idx++];
+                    if (!el) continue;
+                    el.className = 'cell';
+                    el.innerText = '';
+                    delete el.dataset.am;
+                    if (c.rev) {
+                        el.classList.add('rev');
+                        if (c.ismine) {
+                            el.classList.add('mine');
+                            el.innerText = 'X';
+                        } else if (c.am > 0) {
+                            el.innerText = c.am;
+                            el.dataset.am = c.am;
+                        }
+                    } else if (c.flag) {
+                        el.classList.add('flag');
+                        el.innerText = 'F';
+                    }
+                    if (container === opponentBoardEl && lastCoord && lastCoord[0] === x && lastCoord[1] === y) {
+                        el.classList.add('last');
+                    }
+                }
+            }
+        }
+        function countRevealed(g) {
+            let count = 0;
+            for (let x = 0; x < GS; x++) {
+                for (let y = 0; y < GS; y++) {
+                    if (g[x][y].rev && !g[x][y].ismine) count++;
+                }
+            }
+            return count;
+        }
+        function revealCellLocal(g, startX, startY) {
+            const queue = [[startX, startY]];
+            g[startX][startY].rev = true;
+            while (queue.length > 0) {
+                const [cx, cy] = queue.shift();
+                const cell = g[cx][cy];
+                if (cell.am === 0 && !cell.ismine) {
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            let nx = cx + dr, ny = cy + dc;
+                            if (nx >= 0 && nx < GS && ny >= 0 && ny < GS) {
+                                let n = g[nx][ny];
+                                if (!n.rev && !n.flag) {
+                                    n.rev = true;
+                                    if (n.am === 0 && !n.ismine) queue.push([nx, ny]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Chording: click a revealed number whose surrounding flag count matches it
+        // to reveal all of its remaining unflagged neighbors.
+        function chordCell(x, y) {
+            const cell = grid[x][y];
+            if (!cell.rev || cell.ismine || cell.am === 0) return;
+
+            let flags = 0;
+            const targets = [];
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const nx = x + dx, ny = y + dy;
+                    if (nx < 0 || nx >= GS || ny < 0 || ny >= GS) continue;
+                    const n = grid[nx][ny];
+                    if (n.flag) flags++;
+                    else if (!n.rev) targets.push([nx, ny]);
+                }
+            }
+
+            if (flags !== cell.am) return; // only chord when flags match the number
+
+            // temporarily turn off flag mode so onCellClick reveals instead of flagging
+            const savedFlagMode = flagMode;
+            flagMode = false;
+            for (const [nx, ny] of targets) {
+                if (!canPlay) break; // stop if a mine ended the round
+                if (grid[nx][ny].rev) continue; // already opened by an earlier flood fill
+                onCellClick(nx, ny);
+            }
+            flagMode = savedFlagMode;
+        }
+
+        function onCellClick(x, y) {
+            if (!canPlay) return;
+            const cell = grid[x][y];
+            if (cell.rev) {
+                chordCell(x, y);
+                return;
+            }
+            if (flagMode) {
+                onCellFlag(x, y);
+                return;
+            }
+            if (cell.flag) return;
+            if (firstClick) {
+                populateMines(grid, x, y);
+                firstClick = false;
+            }
+            if (cell.ismine) {
+                cell.rev = true;
+                for (let rx = 0; rx < GS; rx++) {
+                    for (let ry = 0; ry < GS; ry++) {
+                        if (grid[rx][ry].ismine) grid[rx][ry].rev = true;
+                    }
+                }
+                updateBoardUI(myBoardEl, grid);
+                if (mode === 'practice') {
+                    canPlay = false;
+                    clearInterval(practiceTimer);
+                    const stats = recordPracticeResult(false);
+                    showModal('lose', 'DEFEAT', 'You hit a mine. Your current streak has reset.', practiceStart ? Date.now() - practiceStart : 0, 'practice', stats);
+                } else {
+                    canPlay = false;
+                    iDead = true;
+                    statusBar.innerText = 'You hit a mine! Spectating opponent...';
+                    boardWrapper.className = 'board-wrapper lose';
+                    banner.className = 'banner lose';
+                    banner.innerText = 'You hit a mine. Waiting for round outcome...';
+                    ws.send(JSON.stringify({ type: 'gameover', result: 'mine' }));
+                }
+                return;
+            }
+            revealCellLocal(grid, x, y);
+            updateBoardUI(myBoardEl, grid);
+            if (mode === 'online') {
+                ws.send(JSON.stringify({ type: 'state', grid, last: [x, y] }));
+            }
+            const revCount = countRevealed(grid);
+            if (revCount === (GS * GS - (mode === 'practice' ? activeMineCount : MINES))) {
+                canPlay = false;
+                if (mode === 'practice') {
+                    clearInterval(practiceTimer);
+                    const stats = recordPracticeResult(true);
+                    showModal('win', 'VICTORY!', 'Grid cleared successfully!', Date.now() - practiceStart, 'practice', stats);
+                } else {
+                    boardWrapper.className = 'board-wrapper win';
+                    ws.send(JSON.stringify({ type: 'gameover', result: 'win' }));
+                }
+            }
+        }
+        function onCellFlag(x, y) {
+            if (!canPlay) return;
+            const cell = grid[x][y];
+            if (cell.rev) return;
+            cell.flag = !cell.flag;
+            updateBoardUI(myBoardEl, grid);
+            if (mode === 'online') {
+                ws.send(JSON.stringify({ type: 'state', grid, last: [x, y] }));
+            }
+        }
+                function showPracticeSelect() {
+            if (practiceTimer) clearInterval(practiceTimer);
+            showScreen('practiceSelect');
+        }
+
+        function startPractice(difficulty = selectedDifficulty) {
+            selectedDifficulty = PRACTICE_MINES[difficulty] ? difficulty : 'medium';
+            activeMineCount = PRACTICE_MINES[selectedDifficulty];
+            mode = 'practice';
+            document.body.classList.add('practice');
+            showScreen('game');
+            grid = createEmptyGrid();
+            firstClick = true;
+            canPlay = true;
+            flagMode = false;
+            $('btn-flag').classList.remove('on');$('btn-flag').innerText = 'Flag mode: OFF';
+            buildBoard(myBoardEl, true);
+            updateBoardUI(myBoardEl, grid);
+            boardWrapper.className = 'board-wrapper';
+            banner.className = 'banner';
+            resultBar.className = 'result-bar';
+                                    statusBar.innerText = `Practice ${selectedDifficulty.toUpperCase()} | 0.0s`;
+            practiceStart = Date.now();
+            if (practiceTimer) clearInterval(practiceTimer);
+            practiceTimer = setInterval(() => {
+                if (canPlay) {
+                    statusBar.innerText = `Practice ${selectedDifficulty.toUpperCase()} | ${fmt(Date.now() - practiceStart)}`;
+                }
+            }, 100);
+        }
+                function playOnline() {
+            mode = 'online';
+            document.body.classList.remove('practice');
+            connect({ type: 'matchmake' });
+        }
+
+        function createLobby() {
+            mode = 'online';
+            document.body.classList.remove('practice');
+            connect({ type: 'createRoom' });
+        }
+
+        function joinByCode() {
+            const code = $('join-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+            if (code.length !== 6) {
+                $('menu-notice').innerText = 'Enter the 6-character lobby code.';
+                return;
+            }
+            mode = 'online';
+            document.body.classList.remove('practice');
+            connect({ type: 'joinRoom', code });
+        }
+
+        async function copyRoomCode() {
+            if (!currentRoomCode) return;
+            try {
+                await navigator.clipboard.writeText(currentRoomCode);
+                $('lobby-hint').innerText = 'Room code copied.';
+            } catch {
+                $('lobby-hint').innerText = `Share this code: ${currentRoomCode}`;
+            }
+        }
+
+        function leaveToMenu() {
+            pendingJoinAction = null;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'leaveRoom' }));
+            }
+            currentRoomCode = '';
+            canPlay = false;
+            roundLive = false;
+            if (practiceTimer) clearInterval(practiceTimer);
+            modal.style.display = 'none';
+            showScreen('menu');
+            renderPracticeStats();
+        }
+        function toggleReady() {
+            myReady = !myReady;
+            $('btn-ready').innerText = myReady ? 'CANCEL READY' : 'READY';
+            $('you-state').innerText = myReady ? 'READY' : 'NOT READY';
+            $('you-state').classList.toggle('on', myReady);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ready', ready: myReady }));
+            }
+        }
+                function connect(joinAction) {
+            if (joinAction) {
+                intentionalClose = false;
+                gotLobby = false;
+                myReady = false;
+                oppPresent = false;
+                oppReady = false;
+                currentRoomCode = '';
+                showScreen('lobby');
+                $('btn-ready').disabled = true;
+                $('lobby-code').innerText = '------';
+                $('lobby-hint').innerText = 'Connecting to server...';
+                $('menu-notice').innerText = '';
+            }
+            pendingJoinAction = joinAction || null;
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                if (pendingJoinAction) {
+                    ws.send(JSON.stringify(pendingJoinAction));
+                    pendingJoinAction = null;
+                }
+                return;
+            }
+            if (ws && ws.readyState === WebSocket.CONNECTING) return;
+
+            wasOpen = false;
+            intentionalClose = false;
+            const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+            ws = new WebSocket(`${proto}${location.host}`);
+            const thisSocket = ws;
+
+            ws.onopen = () => {
+                wasOpen = true;
+                const action = pendingJoinAction;
+                pendingJoinAction = null;
+                if (action && thisSocket.readyState === WebSocket.OPEN) {
+                    thisSocket.send(JSON.stringify(action));
+                    $('lobby-hint').innerText = 'Finding or creating your lobby...';
+                }
+            };
+            ws.onmessage = (event) => {
+                                const msg = JSON.parse(event.data);
+
+                if (msg.type === 'onlineCount') {
+                    $('online-count').innerText = msg.count;
+                    $('lobby-online-count').innerText = msg.count;
+                } else if (msg.type === 'joinedRoom') {
+                    currentRoomCode = msg.code;
+                    $('lobby-code').innerText = currentRoomCode;
+                    $('btn-ready').disabled = false;
+                    $('lobby-hint').innerText = msg.private ? 'Lobby created. Share the code with a friend.' : 'Lobby joined. Waiting for opponent...';
+                } else if (msg.type === 'roomError') {
+                    pendingJoinAction = null;
+                    $('menu-notice').innerText = msg.message || 'Could not join that lobby.';
+                    showScreen('menu');
+                } else if (msg.type === 'leftRoom') {
+                    currentRoomCode = '';
+                    $('lobby-code').innerText = '------';
+                } else if (msg.type === 'full') {
+                    $('menu-notice').innerText = 'Lobby is full.';
+                    showScreen('menu');
+                } else if (msg.type === 'lobby') {
+                                        gotLobby = true;
+                    if (msg.code) {
+                        currentRoomCode = msg.code;
+                        $('lobby-code').innerText = currentRoomCode;
+                    }
+                    $('btn-ready').disabled = false;
+                    myReady = msg.ready;
+                    oppPresent = msg.opponentPresent;
+                    oppReady = msg.opponentReady;
+// Clear out countdown on lobby sync
+                    $('countdown').innerText = '';$('btn-ready').style.display = 'block';
+                    $('you-state').innerText = myReady ? 'READY' : 'NOT READY';
+                    $('you-state').classList.toggle('on', myReady);$('btn-ready').innerText = myReady ? 'CANCEL READY' : 'READY';
+                    if (!oppPresent) {
+                        $('opp-state').innerText = 'WAITING FOR PLAYER';
+                        $('opp-state').classList.remove('on');$('lobby-hint').innerText = 'Waiting for an opponent to join...';
+                    } else {
+                        $('opp-state').innerText = oppReady ? 'READY' : 'NOT READY';
+                        $('opp-state').classList.toggle('on', oppReady);$('lobby-hint').innerText = oppReady ? 'Opponent is ready!' : 'Opponent is in lobby.';
+                    }
+                } else if (msg.type === 'countdown') {
+                    if (msg.n !== null) {
+                        $('countdown').innerText = msg.n;
+                        $('lobby-hint').innerText = 'Match starting soon...';$('btn-ready').style.display = 'none';
+                    } else {
+                        $('countdown').innerText = '';$('btn-ready').style.display = 'block';
+                    }
+                                } else if (msg.type === 'start') {
+                    activeMineCount = MINES;
+                    showScreen('game');
+                    grid = createEmptyGrid();
+                    firstClick = true;
+                    canPlay = true;
+                    roundLive = true;
+                    iDead = false;
+                    flagMode = false;
+                    $('btn-flag').classList.remove('on');$('btn-flag').innerText = 'Flag mode: OFF';
+                    buildBoard(myBoardEl, true);
+                    buildBoard(opponentBoardEl, false);
+                    updateBoardUI(myBoardEl, grid);
+                    boardWrapper.className = 'board-wrapper';
+                    banner.className = 'banner';
+                    resultBar.className = 'result-bar';
+                    statusBar.innerText = 'MATCH LIVE | 0.0s';
+                    spectatorEl.className = 'spectator-container';
+                    opponentStatus.innerText = 'Opponent: 0%';
+                    opponentBar.style.width = '0%';
+                } else if (msg.type === 'timer') {
+                    if (roundLive && canPlay && !iDead) {
+                        statusBar.innerText = `MATCH LIVE | ${fmt(msg.time)}`;
+                    }
+                } else if (msg.type === 'opponentUpdate') {
+                    updateBoardUI(opponentBoardEl, msg.grid, msg.last);
+                    const rev = countRevealed(msg.grid);
+                    const pct = Math.round((rev / SAFE_CELLS) * 100);
+                    oppPct = pct;
+                    opponentStatus.innerText = `Opponent: ${pct}%`;
+                    opponentBar.style.width = `${pct}%`;
+                } else if (msg.type === 'youDied') {
+// Handled locally
+                } else if (msg.type === 'opponentDied') {
+                    spectatorEl.classList.add('danger');
+                    opponentStatus.innerText = 'Opponent hit a mine!';
+                } else if (msg.type === 'end') {
+                    roundLive = false;
+                    canPlay = false;
+                    showModal(msg.result, msg.result === 'win' ? 'VICTORY!' : msg.result === 'lose' ? 'DEFEAT' : 'TIE', getReasonText(msg.reason), null, 'online', msg);
+                }
+            };
+                        ws.onclose = () => {
+                if (thisSocket !== ws) return;
+                if (!intentionalClose && wasOpen && screens.game.classList.contains('active')) {
+                    showModal('lose', 'DISCONNECTED', 'Connection to server lost.', null, 'disconnected');
+                } else if (!intentionalClose && wasOpen && screens.lobby.classList.contains('active')) {
+                    $('menu-notice').innerText = 'Connection to server lost.';
+                    showScreen('menu');
+                }
+            };
+        }
+        function getReasonText(reason) {
+            switch (reason) {
+                case 'cleared': return 'You cleared your grid first!';
+                case 'opponent_cleared': return 'Opponent cleared their grid first.';
+                case 'both_dead': return 'Both players detonated a mine.';
+                case 'opponent_left': return 'Opponent left the match.';
+                default: return 'Match concluded.';
+            }
+        }
+        function showModal(type, title, desc, timeMs, context, data) {
+            modalBox.className = `modal-box ${type}`;
+            modalIcon.innerText = type === 'win' ? '★' : type === 'lose' ? '✖' : '◆';
+            modalTitle.innerText = title;
+            modalWinner.innerText = '';
+            modalDesc.innerText = desc;
+            modalRows.innerHTML = '';
+            modalActions.innerHTML = '';
+                        if (context === 'practice') {
+                const stats = data || loadPracticeStats();
+                modalWinner.innerText = `Time: ${fmt(timeMs)} | Current streak: ${stats.currentStreak} | Best: ${stats.bestStreak}`;
+                const btn = document.createElement('button');
+                btn.className = 'primary';
+                btn.innerText = 'PLAY AGAIN';
+                btn.onclick = () => { modal.style.display = 'none'; startPractice(); };
+                modalActions.appendChild(btn);
+                const menuBtn = document.createElement('button');
+                menuBtn.className = 'secondary';
+                menuBtn.innerText = 'MAIN MENU';
+                menuBtn.onclick = leaveToMenu;
+                modalActions.appendChild(menuBtn);
+            } else if (context === 'online') {
+                if (data && data.you && data.opponent) {
+                    modalRows.innerHTML = `
+                        <div class="who">Your status:</div><div>${data.you.state.toUpperCase()} ${data.you.time ? '(' + fmt(data.you.time) + ')' : ''}</div>
+                        <div class="who">Opponent:</div><div>${data.opponent.state.toUpperCase()} ${data.opponent.time ? '(' + fmt(data.opponent.time) + ')' : ''}</div>
+                    `;
+                }
+                const btn = document.createElement('button');
+                btn.className = 'primary';
+                btn.innerText = 'RETURN TO LOBBY';
+                btn.onclick = () => {
+                    modal.style.display = 'none';
+                    showScreen('lobby');
+                    $('countdown').innerText = ''; // Clear countdown on modal return
+                    myReady = false;
+                    $('btn-ready').style.display = 'block';$('btn-ready').innerText = 'READY';
+                    $('you-state').innerText = 'NOT READY';$('you-state').classList.remove('on');
+                };
+                modalActions.appendChild(btn);
+                const menuBtn = document.createElement('button');
+                menuBtn.className = 'secondary';
+                menuBtn.innerText = 'MAIN MENU';
+                menuBtn.onclick = leaveToMenu;
+                modalActions.appendChild(menuBtn);
+            } else {
+                const btn = document.createElement('button');
+                btn.className = 'primary';
+                btn.innerText = 'MAIN MENU';
+                btn.onclick = leaveToMenu;
+                modalActions.appendChild(btn);
+            }
+            modal.style.display = 'flex';
+        }
+        
+        function loadPracticeStats() {
+            try {
+                const parsed = JSON.parse(localStorage.getItem('pinksweeperPracticeStats') || '{}');
+                return {
+                    currentStreak: Math.max(0, Number(parsed.currentStreak) || 0),
+                    bestStreak: Math.max(0, Number(parsed.bestStreak) || 0),
+                    totalWins: Math.max(0, Number(parsed.totalWins) || 0),
+                    totalLosses: Math.max(0, Number(parsed.totalLosses) || 0)
+                };
+            } catch { return { currentStreak: 0, bestStreak: 0, totalWins: 0, totalLosses: 0 }; }
+        }
+
+        function savePracticeStats(stats) {
+            try { localStorage.setItem('pinksweeperPracticeStats', JSON.stringify(stats)); } catch {}
+            savedPracticeStats = stats;
+            renderPracticeStats();
+        }
+
+        function recordPracticeResult(won) {
+            const stats = loadPracticeStats();
+            if (won) {
+                stats.currentStreak += 1;
+                stats.totalWins += 1;
+                stats.bestStreak = Math.max(stats.bestStreak, stats.currentStreak);
+            } else {
+                stats.currentStreak = 0;
+                stats.totalLosses += 1;
+            }
+            savePracticeStats(stats);
+            return stats;
+        }
+
+        function renderPracticeStats() {
+            const stats = loadPracticeStats();
+            savedPracticeStats = stats;
+            const el = $('practice-stats');
+            if (el) el.innerHTML = `Current streak: ${stats.currentStreak} · Best streak: ${stats.bestStreak}<br>Practice wins: ${stats.totalWins}`;
+        }
+
+        function resetPracticeStats() {
+            if (!confirm('Reset your saved practice streaks and win count?')) return;
+            savePracticeStats({ currentStreak: 0, bestStreak: 0, totalWins: 0, totalLosses: 0 });
+        }
+
+        function saveAppSettings() {
+            try { localStorage.setItem('pinksweeperSettings', JSON.stringify(appSettings)); } catch {}
+        }
+
+        function setTheme(theme) {
+            const allowed = ['pink', 'lavender', 'mint', 'blue'];
+            appSettings.theme = allowed.includes(theme) ? theme : 'pink';
+            document.body.dataset.theme = appSettings.theme;
+            const select = $('setting-theme');
+            if (select) select.value = appSettings.theme;
+            saveAppSettings();
+        }
+
+        function setTileSize(value) {
+            const size = [18, 22, 26].includes(Number(value)) ? Number(value) : 22;
+            appSettings.tileSize = size;
+            document.documentElement.style.setProperty('--tile-size', `${size}px`);
+            if ($('setting-tiles')) $('setting-tiles').value = String(size);
+            saveAppSettings();
+        }
+
+        function setReducedEffects(enabled) {
+            appSettings.reducedEffects = !!enabled;
+            document.body.classList.toggle('no-effects', appSettings.reducedEffects);
+            if ($('setting-effects')) $('setting-effects').checked = appSettings.reducedEffects;
+            saveAppSettings();
+        }
+
+        function setMusicVolume(value) {
+            musicVolume = Math.max(0, Math.min(1, Number(value) / 100));
+            appSettings.volume = Math.round(musicVolume * 100);
+            if ($('setting-volume')) $('setting-volume').value = String(appSettings.volume);
+            saveAppSettings();
+        }
+
+        function setMusicEnabled(enabled) {
+            appSettings.music = !!enabled;
+            musicNeedsGesture = false;
+            if ($('setting-music')) $('setting-music').checked = appSettings.music;
+            saveAppSettings();
+            if (appSettings.music) startMusic(); else stopMusic();
+        }
+
+        function startMusic() {
+            if (musicInterval) return;
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) {
+                appSettings.music = false;
+                if ($('setting-music')) $('setting-music').checked = false;
+                $('menu-notice').innerText = 'Ambient music is not supported in this browser.';
+                saveAppSettings();
+                return;
+            }
+            try {
+                if (!audioContext) audioContext = new AudioContextClass();
+                audioContext.resume();
+                musicStep = 0;
+                playMusicNote();
+                musicInterval = setInterval(playMusicNote, 620);
+            } catch {
+                appSettings.music = false;
+                if ($('setting-music')) $('setting-music').checked = false;
+                saveAppSettings();
+            }
+        }
+
+        function playMusicNote() {
+            if (!audioContext || audioContext.state === 'closed' || musicVolume <= 0) return;
+            const notes = [220, 277.18, 329.63, 392, 329.63, 293.66, 349.23, 440];
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = notes[musicStep % notes.length];
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, musicVolume * 0.035), now + 0.07);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.start(now);
+            osc.stop(now + 0.58);
+            musicStep++;
+        }
+
+        function stopMusic() {
+            if (musicInterval) clearInterval(musicInterval);
+            musicInterval = null;
+            if (audioContext && audioContext.state === 'running') audioContext.suspend();
+        }
+
+        function loadSettings() {
+            try {
+                const stored = JSON.parse(localStorage.getItem('pinksweeperSettings') || '{}');
+                appSettings = { ...appSettings, ...stored };
+            } catch {}
+            setTheme(appSettings.theme);
+            setTileSize(appSettings.tileSize);
+            setReducedEffects(appSettings.reducedEffects);
+            musicVolume = Math.max(0, Math.min(1, Number(appSettings.volume ?? 25) / 100));
+            if ($('setting-volume')) $('setting-volume').value = String(Math.round(musicVolume * 100));
+            if ($('setting-music')) $('setting-music').checked = !!appSettings.music;
+            musicNeedsGesture = !!appSettings.music;
+            setShowOpp(appSettings.showOpponent !== false);
+        }
+
+        loadSettings();
+        renderPracticeStats();
+        setShowOpp(appSettings.showOpponent !== false);
+        document.addEventListener('pointerdown', () => {
+            if (musicNeedsGesture && appSettings.music) {
+                musicNeedsGesture = false;
+                startMusic();
+            }
+        }, { once: true });
+        connect(null);
+    </script>
+</body>
+</html>
